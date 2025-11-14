@@ -1,8 +1,7 @@
+import { ConfigService, Language } from '@config/env.config';
 import fs from 'fs';
 import i18next from 'i18next';
 import path from 'path';
-
-import { ConfigService, Language } from '../config/env.config';
 
 const languages = ['en', 'pt-BR', 'es'];
 const translationsPath = path.join(__dirname, 'translations');
@@ -13,8 +12,9 @@ const resources: any = {};
 languages.forEach((language) => {
   const languagePath = path.join(translationsPath, `${language}.json`);
   if (fs.existsSync(languagePath)) {
+    const translationContent = fs.readFileSync(languagePath, 'utf8');
     resources[language] = {
-      translation: require(languagePath),
+      translation: JSON.parse(translationContent),
     };
   }
 });

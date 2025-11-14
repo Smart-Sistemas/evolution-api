@@ -34,18 +34,17 @@
  * └──────────────────────────────────────────────────────────────────────────────┘
  */
 
+import { ProviderFiles } from '@api/provider/sessions';
+import { Logger } from '@config/logger.config';
 import { AuthenticationCreds, AuthenticationState, BufferJSON, initAuthCreds, proto, SignalDataTypeMap } from 'baileys';
 import { isNotEmpty } from 'class-validator';
-
-import { ProviderFiles } from '../api/provider/sessions';
-import { Logger } from '../config/logger.config';
 
 export type AuthState = { state: AuthenticationState; saveCreds: () => Promise<void> };
 
 export class AuthStateProvider {
   constructor(private readonly providerFiles: ProviderFiles) {}
 
-  private readonly logger = new Logger(AuthStateProvider.name);
+  private readonly logger = new Logger('AuthStateProvider');
 
   public async authStateProvider(instance: string): Promise<AuthState> {
     const [, error] = await this.providerFiles.create(instance);
@@ -101,7 +100,7 @@ export class AuthStateProvider {
               ids.map(async (id) => {
                 let value = await readData(`${type}-${id}`);
                 if (type === 'app-state-sync-key' && value) {
-                  value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                  value = proto.Message.AppStateSyncKeyData.create(value);
                 }
 
                 data[id] = value;

@@ -496,12 +496,24 @@ export class BaileysStartupService extends ChannelStartupService {
 
   private async getMessage(key: proto.IMessageKey, full = false) {
     try {
+      const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
+
+      let webMessageInfo: proto.IWebMessageInfo[];
+
       // Use raw SQL to avoid JSON path issues
-      const webMessageInfo = (await this.prismaRepository.$queryRaw`
-        SELECT * FROM "Message"
-        WHERE "instanceId" = ${this.instanceId}
-        AND "key"->>'id' = ${key.id}
-      `) as proto.IWebMessageInfo[];
+      if(databaseProvider === "mysql") {
+        webMessageInfo = (await this.prismaRepository.$queryRaw`
+          SELECT * FROM Message
+          WHERE instanceId = ${this.instanceId}
+          AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.id')) = ${key.id}
+        `) as proto.IWebMessageInfo[];
+      } else {
+        webMessageInfo = (await this.prismaRepository.$queryRaw`
+          SELECT * FROM "Message"
+          WHERE "instanceId" = ${this.instanceId}
+          AND "key"->>'id' = ${key.id}
+        `) as proto.IWebMessageInfo[];
+      }
 
       if (full) {
         return webMessageInfo[0];
@@ -1486,13 +1498,25 @@ export class BaileysStartupService extends ChannelStartupService {
           const configDatabaseData = this.configService.get<Database>('DATABASE').SAVE_DATA;
           if (configDatabaseData.HISTORIC || configDatabaseData.NEW_MESSAGE) {
             // Use raw SQL to avoid JSON path issues
-            const messages = (await this.prismaRepository.$queryRaw`
-              SELECT * FROM "Message"
-              WHERE "instanceId" = ${this.instanceId}
-              AND "key"->>'id' = ${key.id}
-              LIMIT 1
-            `) as any[];
-            findMessage = messages[0] || null;
+            const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
+
+            if(databaseProvider === "mysql") {
+              const messages = (await this.prismaRepository.$queryRaw`
+                SELECT * FROM Message
+                WHERE instanceId = ${this.instanceId}
+                AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.id')) = ${key.id}
+                LIMIT 1
+              `) as any[];
+              findMessage = messages[0] || null;
+            } else {
+              const messages = (await this.prismaRepository.$queryRaw`
+                SELECT * FROM "Message"
+                WHERE "instanceId" = ${this.instanceId}
+                AND "key"->>'id' = ${key.id}
+                LIMIT 1
+              `) as any[];
+              findMessage = messages[0] || null;
+            }
 
             if (!findMessage?.id) {
               this.logger.warn(`Original message not found for update. Skipping. Key: ${JSON.stringify(key)}`);
@@ -4568,16 +4592,31 @@ export class BaileysStartupService extends ChannelStartupService {
   private async updateMessagesReadedByTimestamp(remoteJid: string, timestamp?: number): Promise<number> {
     if (timestamp === undefined || timestamp === null) return 0;
 
+    const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
+
+    let result: number | undefined;
     // Use raw SQL to avoid JSON path issues
-    const result = await this.prismaRepository.$executeRaw`
-      UPDATE "Message"
-      SET "status" = ${status[4]}
-      WHERE "instanceId" = ${this.instanceId}
-      AND "key"->>'remoteJid' = ${remoteJid}
-      AND ("key"->>'fromMe')::boolean = false
-      AND "messageTimestamp" <= ${timestamp}
-      AND ("status" IS NULL OR "status" = ${status[3]})
-    `;
+    if(databaseProvider === "mysql") {
+      result = await this.prismaRepository.$executeRaw`
+        UPDATE Message
+        SET status = ${status[4]}
+        WHERE instanceId = ${this.instanceId}
+        AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.remoteJid')) = ${remoteJid}
+        AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.fromMe')) = 'false'
+        AND messageTimestamp <= ${timestamp}
+        AND (status IS NULL OR status = ${status[3]})
+      `;
+    } else {
+      result = await this.prismaRepository.$executeRaw`
+        UPDATE "Message"
+        SET "status" = ${status[4]}
+        WHERE "instanceId" = ${this.instanceId}
+        AND "key"->>'remoteJid' = ${remoteJid}
+        AND ("key"->>'fromMe')::boolean = false
+        AND "messageTimestamp" <= ${timestamp}
+        AND ("status" IS NULL OR "status" = ${status[3]})
+      `;
+    }
 
     if (result) {
       if (result > 0) {
@@ -4590,17 +4629,28 @@ export class BaileysStartupService extends ChannelStartupService {
     return 0;
   }
 
-  private async updateChatUnreadMessages(remoteJid: string): Promise<number> {
+  private async updateChatUnreadMessages(remoteJid: string): Promise<number> {    
+    const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
+
+    // Use raw SQL to avoid JSON path issues
     const [chat, unreadMessages] = await Promise.all([
       this.prismaRepository.chat.findFirst({ where: { remoteJid } }),
       // Use raw SQL to avoid JSON path issues
-      this.prismaRepository.$queryRaw`
-        SELECT COUNT(*)::int as count FROM "Message"
-        WHERE "instanceId" = ${this.instanceId}
-        AND "key"->>'remoteJid' = ${remoteJid}
-        AND ("key"->>'fromMe')::boolean = false
-        AND "status" = ${status[3]}
-      `.then((result: any[]) => result[0]?.count || 0),
+      (databaseProvider === "mysql" ?
+        (this.prismaRepository.$queryRaw`
+          SELECT COUNT(1) as count FROM Message
+          WHERE instanceId = ${this.instanceId}
+          AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.remoteJid')) = ${remoteJid}
+          AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.fromMe')) = false
+          AND status = ${status[3]}
+        `) :
+        (this.prismaRepository.$queryRaw`
+          SELECT COUNT(*)::int as count FROM "Message"
+          WHERE "instanceId" = ${this.instanceId}
+          AND "key"->>'remoteJid' = ${remoteJid}
+          AND ("key"->>'fromMe')::boolean = false
+          AND "status" = ${status[3]}
+        `)).then((result: any[]) => result[0]?.count || 0),
     ]);
 
     if (chat && chat.unreadMessages !== unreadMessages) {

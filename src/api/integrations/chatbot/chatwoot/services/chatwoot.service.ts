@@ -1571,17 +1571,32 @@ export class ChatwootService {
     }
 
     // Use raw SQL to avoid JSON path issues
-    const result = await this.prismaRepository.$executeRaw`
-      UPDATE "Message" 
-      SET 
-        "chatwootMessageId" = ${chatwootMessageIds.messageId},
-        "chatwootConversationId" = ${chatwootMessageIds.conversationId},
-        "chatwootInboxId" = ${chatwootMessageIds.inboxId},
-        "chatwootContactInboxSourceId" = ${chatwootMessageIds.contactInboxSourceId},
-        "chatwootIsRead" = ${chatwootMessageIds.isRead || false}
-      WHERE "instanceId" = ${instance.instanceId} 
-      AND "key"->>'id' = ${key.id}
-    `;
+    let result: number;
+    if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
+      result = await this.prismaRepository.$executeRaw`
+        UPDATE Message 
+        SET 
+          chatwootMessageId = ${chatwootMessageIds.messageId},
+          chatwootConversationId = ${chatwootMessageIds.conversationId},
+          chatwootInboxId = ${chatwootMessageIds.inboxId},
+          chatwootContactInboxSourceId = ${chatwootMessageIds.contactInboxSourceId},
+          chatwootIsRead = ${chatwootMessageIds.isRead || false}
+        WHERE instanceId = ${instance.instanceId} 
+        AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.id')) = ${key.id}
+      `;
+    } else {
+      result = await this.prismaRepository.$executeRaw`
+        UPDATE "Message" 
+        SET 
+          "chatwootMessageId" = ${chatwootMessageIds.messageId},
+          "chatwootConversationId" = ${chatwootMessageIds.conversationId},
+          "chatwootInboxId" = ${chatwootMessageIds.inboxId},
+          "chatwootContactInboxSourceId" = ${chatwootMessageIds.contactInboxSourceId},
+          "chatwootIsRead" = ${chatwootMessageIds.isRead || false}
+        WHERE "instanceId" = ${instance.instanceId} 
+        AND "key"->>'id' = ${key.id}
+      `;
+    }
 
     this.logger.verbose(`Update result: ${result} rows affected`);
 
@@ -1592,6 +1607,17 @@ export class ChatwootService {
 
   private async getMessageByKeyId(instance: InstanceDto, keyId: string): Promise<MessageModel> {
     // Use raw SQL query to avoid JSON path issues with Prisma
+    if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
+      const messages = await this.prismaRepository.$queryRaw`
+        SELECT * FROM Message
+        WHERE instanceId = ${instance.instanceId}
+        AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.id')) = ${keyId}
+        LIMIT 1
+      `;
+
+      return (messages as MessageModel[])[0] || null;
+    }
+    
     const messages = await this.prismaRepository.$queryRaw`
       SELECT * FROM "Message" 
       WHERE "instanceId" = ${instance.instanceId} 

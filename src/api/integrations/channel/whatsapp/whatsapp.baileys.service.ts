@@ -496,12 +496,10 @@ export class BaileysStartupService extends ChannelStartupService {
 
   private async getMessage(key: proto.IMessageKey, full = false) {
     try {
-      const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
-
       let webMessageInfo: proto.IWebMessageInfo[];
 
       // Use raw SQL to avoid JSON path issues
-      if(databaseProvider === "mysql") {
+      if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
         webMessageInfo = (await this.prismaRepository.$queryRaw`
           SELECT * FROM Message
           WHERE instanceId = ${this.instanceId}
@@ -1498,9 +1496,7 @@ export class BaileysStartupService extends ChannelStartupService {
           const configDatabaseData = this.configService.get<Database>('DATABASE').SAVE_DATA;
           if (configDatabaseData.HISTORIC || configDatabaseData.NEW_MESSAGE) {
             // Use raw SQL to avoid JSON path issues
-            const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
-
-            if(databaseProvider === "mysql") {
+            if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
               const messages = (await this.prismaRepository.$queryRaw`
                 SELECT * FROM Message
                 WHERE instanceId = ${this.instanceId}
@@ -4592,11 +4588,9 @@ export class BaileysStartupService extends ChannelStartupService {
   private async updateMessagesReadedByTimestamp(remoteJid: string, timestamp?: number): Promise<number> {
     if (timestamp === undefined || timestamp === null) return 0;
 
-    const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
-
     let result: number | undefined;
     // Use raw SQL to avoid JSON path issues
-    if(databaseProvider === "mysql") {
+    if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
       result = await this.prismaRepository.$executeRaw`
         UPDATE Message
         SET status = ${status[4]}
@@ -4630,13 +4624,11 @@ export class BaileysStartupService extends ChannelStartupService {
   }
 
   private async updateChatUnreadMessages(remoteJid: string): Promise<number> {    
-    const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
-
     // Use raw SQL to avoid JSON path issues
     const [chat, unreadMessages] = await Promise.all([
       this.prismaRepository.chat.findFirst({ where: { remoteJid } }),
       // Use raw SQL to avoid JSON path issues
-      (databaseProvider === "mysql" ?
+      (this.configService.get<Database>('DATABASE').PROVIDER === "mysql" ?
         (this.prismaRepository.$queryRaw`
           SELECT COUNT(1) as count FROM Message
           WHERE instanceId = ${this.instanceId}

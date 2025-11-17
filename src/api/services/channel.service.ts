@@ -606,6 +606,23 @@ export class ChannelStartupService {
       }
     }
 
+    let jsonFilter: any[] = [];
+    if (this.configService.get<Database>('DATABASE').PROVIDER === 'mysql') {
+      jsonFilter = [
+        keyFilters?.id ? { key: { path: '$.id', equals: keyFilters?.id } } : {},
+        keyFilters?.fromMe ? { key: { path: '$.fromMe', equals: keyFilters?.fromMe } } : {},
+        keyFilters?.remoteJid ? { key: { path: '$.remoteJid', equals: keyFilters?.remoteJid } } : {},
+        keyFilters?.participants ? { key: { path: '$.participants', equals: keyFilters?.participants } } : {},
+      ];
+    } else {
+      jsonFilter = [
+        keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
+        keyFilters?.fromMe ? { key: { path: ['fromMe'], equals: keyFilters?.fromMe } } : {},
+        keyFilters?.remoteJid ? { key: { path: ['remoteJid'], equals: keyFilters?.remoteJid } } : {},
+        keyFilters?.participants ? { key: { path: ['participants'], equals: keyFilters?.participants } } : {},
+      ];
+    }
+
     const count = await this.prismaRepository.message.count({
       where: {
         instanceId: this.instanceId,
@@ -613,12 +630,7 @@ export class ChannelStartupService {
         source: query?.where?.source,
         messageType: query?.where?.messageType,
         ...timestampFilter,
-        AND: [
-          keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
-          keyFilters?.fromMe ? { key: { path: ['fromMe'], equals: keyFilters?.fromMe } } : {},
-          keyFilters?.remoteJid ? { key: { path: ['remoteJid'], equals: keyFilters?.remoteJid } } : {},
-          keyFilters?.participants ? { key: { path: ['participants'], equals: keyFilters?.participants } } : {},
-        ],
+        AND: jsonFilter,
       },
     });
 
@@ -637,12 +649,7 @@ export class ChannelStartupService {
         source: query?.where?.source,
         messageType: query?.where?.messageType,
         ...timestampFilter,
-        AND: [
-          keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
-          keyFilters?.fromMe ? { key: { path: ['fromMe'], equals: keyFilters?.fromMe } } : {},
-          keyFilters?.remoteJid ? { key: { path: ['remoteJid'], equals: keyFilters?.remoteJid } } : {},
-          keyFilters?.participants ? { key: { path: ['participants'], equals: keyFilters?.participants } } : {},
-        ],
+        AND: jsonFilter,
       },
       orderBy: {
         messageTimestamp: 'desc',
@@ -726,8 +733,7 @@ export class ChannelStartupService {
 
     const limit = query?.take ? Prisma.sql`LIMIT ${query.take}` : Prisma.sql``;
     const offset = query?.skip ? Prisma.sql`OFFSET ${query.skip}` : Prisma.sql``;
-    const databaseProvider = this.configService.get<Database>('DATABASE').PROVIDER;
-    if(databaseProvider === "mysql") {
+    if (this.configService.get<Database>('DATABASE').PROVIDER === 'mysql') {
       const timestampFilter =
         query?.where?.messageTimestamp?.gte && query?.where?.messageTimestamp?.lte
           ? Prisma.sql`

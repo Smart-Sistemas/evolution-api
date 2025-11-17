@@ -1572,7 +1572,7 @@ export class ChatwootService {
 
     // Use raw SQL to avoid JSON path issues
     let result: number;
-    if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
+    if (this.configService.get<Database>('DATABASE').PROVIDER === 'mysql') {
       result = await this.prismaRepository.$executeRaw`
         UPDATE Message 
         SET 
@@ -1607,7 +1607,7 @@ export class ChatwootService {
 
   private async getMessageByKeyId(instance: InstanceDto, keyId: string): Promise<MessageModel> {
     // Use raw SQL query to avoid JSON path issues with Prisma
-    if(this.configService.get<Database>('DATABASE').PROVIDER === "mysql") {
+    if (this.configService.get<Database>('DATABASE').PROVIDER === 'mysql') {
       const messages = await this.prismaRepository.$queryRaw`
         SELECT * FROM Message
         WHERE instanceId = ${instance.instanceId}
@@ -1617,7 +1617,7 @@ export class ChatwootService {
 
       return (messages as MessageModel[])[0] || null;
     }
-    
+
     const messages = await this.prismaRepository.$queryRaw`
       SELECT * FROM "Message" 
       WHERE "instanceId" = ${instance.instanceId} 

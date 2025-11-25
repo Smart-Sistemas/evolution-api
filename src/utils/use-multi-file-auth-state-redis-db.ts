@@ -1,7 +1,6 @@
+import { CacheService } from '@api/services/cache.service';
+import { Logger } from '@config/logger.config';
 import { AuthenticationCreds, AuthenticationState, initAuthCreds, proto, SignalDataTypeMap } from 'baileys';
-
-import { CacheService } from '../api/services/cache.service';
-import { Logger } from '../config/logger.config';
 
 export async function useMultiFileAuthStateRedisDb(
   instanceName: string,
@@ -10,7 +9,7 @@ export async function useMultiFileAuthStateRedisDb(
   state: AuthenticationState;
   saveCreds: () => Promise<void>;
 }> {
-  const logger = new Logger(useMultiFileAuthStateRedisDb.name);
+  const logger = new Logger('useMultiFileAuthStateRedisDb');
 
   const writeData = async (data: any, key: string): Promise<any> => {
     try {
@@ -51,7 +50,7 @@ export async function useMultiFileAuthStateRedisDb(
             ids.map(async (id) => {
               let value = await readData(`${type}-${id}`);
               if (type === 'app-state-sync-key' && value) {
-                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                value = proto.Message.AppStateSyncKeyData.create(value);
               }
 
               data[id] = value;

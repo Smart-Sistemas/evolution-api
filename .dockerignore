@@ -1,10 +1,6 @@
 .git
-.github
-.vscode
 *Dockerfile*
 *docker-compose*
 .env
-deployment
-dist
-Docker
 node_modules
+dist

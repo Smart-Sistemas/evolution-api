@@ -660,9 +660,11 @@ model IsOnWhatsapp {
   id         String   @id @default(cuid())
   remoteJid  String   @unique @db.VarChar(100)
   jidOptions String
-  lid        String?  @db.VarChar(100)
-  createdAt  DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
-  updatedAt  DateTime @updatedAt @db.Timestamp
+  lid       String?             @db.VarChar(100)
+  createdAt DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp
+  updatedAt DateTime            @updatedAt @db.Timestamp
+
+  jids      IsOnWhatsappJid[]
 
   @@index([jidOptions])
 }
@@ -763,3 +765,12 @@ model EvoaiSetting {
   Instance        Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   instanceId      String    @unique
 }
+model IsOnWhatsappJid {
+  id              BigInt        @id @default(autoincrement())
+  jid             String        @unique @db.VarChar(191)
+  isOnWhatsappId  String
+  
+  isOnWhatsapp    IsOnWhatsapp  @relation(fields: [isOnWhatsappId], references: [id],onDelete: Cascade)
+  @@index([jid])
+}
+

@@ -53,8 +53,10 @@ COPY --from=builder /evolution/Docker ./Docker
 COPY --from=builder /evolution/runWithProvider.js ./runWithProvider.js
 COPY --from=builder /evolution/tsup.config.ts ./tsup.config.ts
 
+RUN DATABASE_PROVIDER=mysql npm run db:generate
+
 ENV DOCKER_ENV=true
 
 EXPOSE 8080
 
-ENTRYPOINT ["/bin/bash", "-c", ". ./Docker/scripts/deploy_database.sh && npm run start:prod" ]
+ENTRYPOINT ["npm", "run", "start:prod" ]
